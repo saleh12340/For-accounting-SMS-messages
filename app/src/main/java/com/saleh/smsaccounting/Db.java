@@ -1,10 +1,13 @@
 package com.saleh.smsaccounting;
 import android.content.*;import android.database.*;import android.database.sqlite.*;import java.util.*;
 public class Db extends SQLiteOpenHelper{
- public Db(Context c){super(c,"sms_accounting.db",null,2);}
- public void onCreate(SQLiteDatabase d){d.execSQL("CREATE TABLE tx(id INTEGER PRIMARY KEY AUTOINCREMENT,type TEXT,party TEXT,ref TEXT,body TEXT,amount REAL,sms_balance REAL,time INTEGER,source TEXT,UNIQUE(body,time))");d.execSQL("CREATE TABLE settings(k TEXT PRIMARY KEY,v TEXT)");}
- public void onUpgrade(SQLiteDatabase d,int a,int b){if(a<2){d.execSQL("ALTER TABLE tx ADD COLUMN source TEXT DEFAULT 'SMS'");}}
+ public Db(Context c){super(c,"sms_accounting.db",null,3);}
+ public void onCreate(SQLiteDatabase d){d.execSQL("CREATE TABLE tx(id INTEGER PRIMARY KEY AUTOINCREMENT,type TEXT,party TEXT,ref TEXT,body TEXT,amount REAL,sms_balance REAL,time INTEGER,source TEXT,UNIQUE(body,time))");d.execSQL("CREATE TABLE settings(k TEXT PRIMARY KEY,v TEXT)");d.execSQL("CREATE TABLE review(id INTEGER PRIMARY KEY AUTOINCREMENT,body TEXT,time INTEGER,address TEXT,reason TEXT)");}
+ public void onUpgrade(SQLiteDatabase d,int a,int b){if(a<2)d.execSQL("ALTER TABLE tx ADD COLUMN source TEXT DEFAULT 'SMS'");if(a<3)d.execSQL("CREATE TABLE review(id INTEGER PRIMARY KEY AUTOINCREMENT,body TEXT,time INTEGER,address TEXT,reason TEXT)");}
  public long add(Transaction t){ContentValues v=new ContentValues();v.put("type",t.type);v.put("party",t.party);v.put("ref",t.reference);v.put("body",t.body);v.put("amount",t.amount);v.put("sms_balance",t.smsBalance);v.put("time",t.time);v.put("source",t.source);try{return getWritableDatabase().insertOrThrow("tx",null,v);}catch(Exception e){return -1;}}
+ public boolean exists(String body,long time){Cursor c=getReadableDatabase().rawQuery("SELECT 1 FROM tx WHERE body=? AND time=? LIMIT 1",new String[]{body,String.valueOf(time)});boolean x=c.moveToFirst();c.close();return x;}
+ public void addReview(String body,long time,String address,String reason){ContentValues v=new ContentValues();v.put("body",body);v.put("time",time);v.put("address",address);v.put("reason",reason);getWritableDatabase().insert("review",null,v);}
+ public int reviewCount(){Cursor c=getReadableDatabase().rawQuery("SELECT COUNT(*) FROM review",null);int n=c.moveToFirst()?c.getInt(0):0;c.close();return n;}
  public double opening(){Cursor c=getReadableDatabase().rawQuery("SELECT v FROM settings WHERE k='opening'",null);try{return c.moveToFirst()?Double.parseDouble(c.getString(0)):0;}catch(Exception e){return 0;}finally{c.close();}}
  public void setOpening(double x){ContentValues v=new ContentValues();v.put("k","opening");v.put("v",String.valueOf(x));getWritableDatabase().insertWithOnConflict("settings",null,v,SQLiteDatabase.CONFLICT_REPLACE);}
  public List<Transaction> all(){List<Transaction>a=new ArrayList<>();Cursor c=getReadableDatabase().rawQuery("SELECT id,type,party,ref,body,amount,sms_balance,time,source FROM tx ORDER BY time ASC,id ASC",null);while(c.moveToNext())a.add(new Transaction(c.getLong(0),c.getString(1),c.getString(2),c.getString(3),c.getString(4),c.getDouble(5),c.getDouble(6),c.getLong(7),c.getString(8)));c.close();return a;}
